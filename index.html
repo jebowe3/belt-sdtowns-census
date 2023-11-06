@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <!-- Give the page a title -->
+  <title>Leia Belt's Map</title>
+  <!-- Add a link to the Leaflet CSS library so you can reference it for styling your map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css" />
+  <!-- All the CSS code goes inside the style tags below -->
+  <style>
+    /* style the body */
+    body {
+      margin: 0px;
+      height: 100%;
+      width: 100%;
+    }
+
+    /* style the map */
+    #map {
+      position: absolute;
+      width: 100%;
+      top: 0px;
+      bottom: 0;
+    }
+
+    /* style header */
+    header {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      width: 500px;
+      height: auto;
+      background-color: rgba(255, 255, 255, 0.75);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+      border-radius: 3px;
+      z-index: 800;
+    }
+
+    /* the text inputs */
+    h1 {
+      color: black;
+      font-size: 18px;
+      font-family: 'Lato', sans-serif;
+      display: inline-block;
+      margin-top: 0.25em;
+      margin-bottom: 0.0em;
+      margin-left: 0.5em;
+      margin-right: 0;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
+    h2 {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 12px;
+      color: black;
+      display: inline-block;
+      margin-top: 0.0em;
+      margin-bottom: 0.0em;
+      margin-left: 0.75em;
+      margin-right: 0;
+      font-weight: normal;
+    }    
+
+    /* style the slider-control div */
+    #slider-control {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      width: 30%;
+      height: 25px;
+      z-index: 700;
+    }
+
+    /* Set time slider styles */
+    #slider {
+      position: absolute;
+      height: 100%;
+      bottom: 0px;
+      left: 125px;
+      z-index: 1000;
+      background-color: rgba(255, 255, 255, 0.75);
+      border-radius: 3px;
+      box-shadow: 0px 0px 0px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Set temporal legend styles */
+    #temporal {
+      position: absolute;
+      height: 100%;
+      bottom: 0px;
+      width: 86px;
+      z-index: 1000;
+      background-color: rgba(255, 255, 255, 0.75);
+      border-radius: 3px;
+      box-shadow: 0px 0px 0px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Set the styles for the text span in the temporal legend */
+    #temporal span {
+      font-family: 'Montserrat', sans-serif;
+      position: absolute;
+      font-size: 13px;
+      bottom: 4px;
+      left: 10px;
+    }
+    
+    /* Font styles */
+    h4 {
+      font-size: 16px;
+      margin: 4px;
+    }
+
+    /* Legend styles */
+    .legend, .legend2 {
+      padding: 6px 8px;
+      font-size: 1em;
+      background: rgba(255, 255, 255, 0.75);
+      color: rgb(0, 0, 0);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+      border-radius: 5px;
+      width: auto !important;
+      white-space: nowrap;
+    }
+    .legend span, .legend2 span {
+      margin-right: 10px;
+    }
+
+    /* the zoom control */
+    .leaflet-top {
+      bottom: 0;
+    }
+
+    .leaflet-top .leaflet-control-zoom {
+      top: 80px;
+      left: 0px;
+    } 
+    
+    /* the layer control */
+    .leaflet-control-layers {
+      background: rgba(255, 255, 255, 0.75);
+    }
+  </style>
+</head>
+
+<body>
+  <!-- the map -->
+  <div id="map"></div>
+  <!-- header -->
+  <header>
+    <h1>Sundown Towns and Settlement Patterns of People of Color, 1860 - 2020</h1><br>
+    <h2>Map by Leia Belt; Data courtesy of the <a href ="https://justice.tougaloo.edu/sundown-towns/using-the-sundown-towns-database/" style="color:blue;">Sundown Towns Database</a>, the <a href ="https://www.census.gov/data.html" style="color:blue;">US Census</a>,<br>the <a href ="https://data.apps.fao.org/catalog/iso/9264483f-ca14-496b-aeae-fe1b8aebf520" style="color:blue;">Food and Agriculture Organization</a>, and <a href ="https://my.vanderbilt.edu/jeremyatack/data-downloads/" style="color:blue;">Jeremy Atack</a></h2>
+  </header>
+  <!-- ui slider -->
+  <div id="slider-control">
+    <div id="slider" class="leaflet-control">
+      <!-- Use the first and last year of the time data as the min and max. Set the initial value as the first year. Set the steps at ten years. -->
+      <input type="range" min="1860" max="2020" value="1860" step="10" class="slider" />
+    </div>
+    <!-- temporal legend -->
+    <div id='temporal'>
+      <h5 class='txt-bold'><span></span></h5>
+    </div>    
+  </div>
+  <!-- Add a link to the Leaflet JavaScript library so you can reference it for building your map -->
+  <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"></script>
+  <!-- Add a link to the jQuery JavaScript library so you can leverage ajax methods to load your data -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <!-- All JavaScript goes inside the script tags below -->
+  <script>
+    // define map options
+    const mapOptions = {
+      //zoomSnap: 0.5,  // this allows fractional zooming
+      center: [39.833333, -98.583333], // center the map on the coordinates for the center of the Lower 48
+      zoom: 5, // set the initial zoom,
+      maxZoom: 8,
+      minZoom: 4
+    };
+
+    // define the map with the options above
+    const map = L.map("map", mapOptions);
+
+    L.DomUtil.setOpacity(map.zoomControl.getContainer(), 0.75);
+
+    // create a pane for the labels to keep them above the data
+    map.createPane('labels').style.zIndex = 800;
+    // Create a custom tooltip pane with a higher z-index
+    map.createPane('custom-tooltip-pane').style.zIndex = 900;
+
+    // add a base map to the map
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 20
+    }).addTo(map);
+
+    const CartoDB_PositronOnlyLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
+      pane: 'labels',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 20
+    });
+
+    // Create a legend control
+    const legendControl = L.control({ position: 'bottomright' });
+    const legendControl2 = L.control({ position: 'bottomright' });
+
+    // Create a legend div within the legend control
+    legendControl.onAdd = function (map) {
+      const legend = L.DomUtil.create('div', 'legend');
+      // Stop mouseclicks from having an effect over the control
+      L.DomEvent.addListener(legend, 'mousedown', function(e) { 
+        L.DomEvent.stopPropagation(e); 
+	    });       
+      return legend;
+    };
+
+    // Create a second legend div within the legend control
+    legendControl2.onAdd = function (map) {
+      const legend2 = L.DomUtil.create('div', 'legend2');
+      // Stop mouseclicks from having an effect over the control
+      L.DomEvent.addListener(legend2, 'mousedown', function(e) { 
+        L.DomEvent.stopPropagation(e); 
+	    });       
+      return legend2;
+    };     
+
+    // Add the legend control to the map
+    legendControl.addTo(map);
+    legendControl2.addTo(map);
+
+    // Hide the sundown legend control
+    $('.legend').hide();
+    //$('.legend2').hide();
+
+    // select the newly created legend, select and populate the heading,
+    // creating an unordered list for the class ranges and store as reference to variable
+    const legend = $('.legend').html("<h4>Sundown Town<br>Confirmation Status</h4><ul style='list-style-type: none; padding: 5px; margin: 0;'>" +
+                                 "<li><span style='background: #A9A9A9; border-radius: 50%; width: 8px; height: 8px; display: inline-block;'></span> Don't Know</li>" +
+                                 "<li><span style='background: #FA8072; border-radius: 50%; width: 8px; height: 8px; display: inline-block;'></span> Possible</li>" +
+                                 "<li><span style='background: #FF0000; border-radius: 50%; width: 8px; height: 8px; display: inline-block;'></span> Probable</li>" +
+                                 "<li><span style='background: #8B0000; border-radius: 50%; width: 8px; height: 8px; display: inline-block;'></span> Surely</li>" +
+                                 "<li><span style='background: grey; border-radius: 50%; width: 8px; height: 8px; display: inline-block;'></span> Unlikely/Always Biracial</li>" +
+                                 "<li><span style='background: #000000; border-radius: 50%; width: 8px; height: 8px; display: inline-block;'></span> Black Town or Township</li>" +
+                                 "</ul>");
+    
+    // select the newly created legend, select and populate the heading,
+    // creating labeled colored squares representing the class ranges in the demoGroup layer
+    const legend2 = $('.legend2').html("<h4>% People of Color</h4><ul style='list-style-type: none; padding: 5px; margin: 0;'>" +
+                                 "<li><span style='background: #c83454; border-radius: 50%; width: 8px; height: 8px; display: inline-block;'></span> 75.01% - 100%</li>" +
+                                 "<li><span style='background: #de8c52; border-radius: 50%; width: 8px; height: 8px; display: inline-block;'></span> 50.01% - 75.00%</li>" +
+                                 "<li><span style='background: #e8b34c; border-radius: 50%; width: 8px; height: 8px; display: inline-block;'></span> 25.01% - 50.00%</li>" +
+                                 "<li><span style='background: #b6995a; border-radius: 50%; width: 8px; height: 8px; display: inline-block;'></span> 5.01% - 25.00%</li>" +
+                                 "<li><span style='background: #60645c; border-radius: 50%; width: 8px; height: 8px; display: inline-block;'></span> 0.00% - 5.00%</li>" +
+                                 "<li><span style='background: #e8d4bc; border-radius: 50%; width: 8px; height: 8px; display: inline-block;'></span> No Data</li>" +
+                                 "</ul>");
+
+    // create a layer group to hold time filtered demographic data 
+    const demoGroup = L.layerGroup().addTo(map);
+
+    // use jquery to load GeoJSON data
+    $.when(
+      $.getJSON("data/DECADE_1860.json"),
+      $.getJSON("data/DECADE_1870.json"),
+      $.getJSON("data/DECADE_1880.json"),
+      $.getJSON("data/DECADE_1890.json"),
+      $.getJSON("data/DECADE_1900.json"),
+      $.getJSON("data/DECADE_1910.json"),
+      $.getJSON("data/DECADE_1920.json"),
+      $.getJSON("data/DECADE_1930.json"),
+      $.getJSON("data/DECADE_1940.json"),
+      $.getJSON("data/DECADE_1950.json"),
+      $.getJSON("data/DECADE_1960.json"),
+      $.getJSON("data/DECADE_1970.json"),
+      $.getJSON("data/DECADE_1980.json"),
+      $.getJSON("data/DECADE_1990.json"),
+      $.getJSON("data/DECADE_2000.json"),
+      $.getJSON("data/DECADE_2010.json"),
+      $.getJSON("data/DECADE_2020.json"),
+      $.getJSON("data/us-rivers.json"),
+      $.getJSON("data/us-railroads-historic.json"),
+      $.getJSON("data/sundown-towns.geojson"),
+      // when the files are done loading,
+      // identify them with names and process them through a function  
+    ).done(function(d1860, d1870, d1880, d1890, d1900, d1910, d1920, d1930, d1940, d1950, d1960, d1970, d1980, d1990, d2000, d2010, d2020, rivs, hrrs, sdtwns) {
+      
+      // Create the decade layers using the function
+      const decade1860 = createDecadeLayer(d1860);
+      const decade1870 = createDecadeLayer(d1870);
+      const decade1880 = createDecadeLayer(d1880);
+      const decade1890 = createDecadeLayer(d1890);
+      const decade1900 = createDecadeLayer(d1900);
+      const decade1910 = createDecadeLayer(d1910);
+      const decade1920 = createDecadeLayer(d1920);
+      const decade1930 = createDecadeLayer(d1930);
+      const decade1940 = createDecadeLayer(d1940);
+      const decade1950 = createDecadeLayer(d1950);
+      const decade1960 = createDecadeLayer(d1960);
+      const decade1970 = createDecadeLayer(d1970);
+      const decade1980 = createDecadeLayer(d1980);
+      const decade1990 = createDecadeLayer(d1990);
+      const decade2000 = createDecadeLayer(d2000);
+      const decade2010 = createDecadeLayer(d2010);
+      const decade2020 = createDecadeLayer(d2020);
+
+      // add a leaflet layer for the rivers
+      const rivers = L.geoJson(rivs, {
+        // style hierarchically based on the "Strahler" property
+        style: function(feature) {
+          let strahler = feature.properties.Strahler;
+          let color, weight;
+          if (strahler == 1) {
+            weight = 0.5;
+          } else if (strahler == 2) {
+            weight = 0.5;
+          } else if (strahler == 3) {
+            weight = 0.75;
+          } else if (strahler == 4) {
+            weight = 1.0;
+          } else if (strahler == 5) {
+            weight = 1.25;
+          } else if (strahler == 6) {
+            weight = 1.5;
+          } else if (strahler == 7) {
+            weight = 1.75;
+          } else if (strahler == 8) {
+            weight = 2.0;
+          } else if (strahler == 9) {
+            weight = 2.25;
+          } else {
+            weight = 0.5;
+          }
+          return {
+            color:"#ADD8E6",
+            weight: weight,
+            opacity: 0.9
+          };
+        }
+      });
+      // add a leaflet layer for the railroads
+      const railroads = L.geoJson(hrrs, {
+        // add a zoom-dependent style
+        style: function(feature) {
+          let zoomLevel = map.getZoom();
+          let color, weight;
+          if (zoomLevel < 5) {
+            color = "#5C4033";
+            weight = 0.5;
+          } else {
+            color = "#5C4033";
+            weight = 1;
+          }
+          return {
+            color: color,
+            weight: weight,
+            opacity: 0.65
+          };
+        }
+      });
+      const sundownTowns = L.geoJson(sdtwns, {
+        pointToLayer : function(feature, latlng) {
+          return L.circleMarker(latlng, {
+            radius : 4,
+            fillColor : sundownStatus(feature.properties.confirmed),
+            color : "#000",
+            weight : 1,
+            opacity : 1,
+            fillOpacity : 0.8
+          });
+        },
+        onEachFeature: function(feature, layer) {
+          let props = layer.feature.properties;
+          let content = '<b>' + props.name + ", " + props.state + '</b>';
+          layer.bindTooltip(content, {
+            pane: 'custom-tooltip-pane',
+            sticky: true,
+            className: "tooltip"
+          });
+          layer.on("mouseover", function(e) {
+            layer.setStyle({
+              color: 'yellow',
+              radius: 8
+            });
+          });
+          layer.on("mouseout", function(e) {
+            layer.setStyle({
+              color: "#000",
+              radius: 4
+            });
+          });
+        }
+      });
+
+      // define the overlays
+      const maplayers = {
+        "Percent People of Color": demoGroup,
+        "Sundown Towns": sundownTowns,
+        "Railroads": railroads,
+        "Rivers": rivers,
+        "Labels": CartoDB_PositronOnlyLabels
+      };
+
+      // add a layer control 
+      const layerControl = L.control.layers(null, maplayers, {collapsed: false}).addTo(map);
+
+      // Event listener for the layeradd event
+      map.on('layeradd', function (eventLayer) {
+        if (eventLayer.layer === sundownTowns) {
+          // Show the legend
+          $('.legend').show();
+        }
+        if (eventLayer.layer === demoGroup) {
+          // Show the legend
+          $('.legend2').show();
+        }
+      });
+      // If the layer is removed
+      map.on('layerremove', function (eventLayer) {
+        if (eventLayer.layer === sundownTowns) {
+          // Hide the legend
+          $('.legend').hide();
+        }
+        if (eventLayer.layer === demoGroup) {
+          // Hide the legend
+          $('.legend2').hide();
+        }
+      });
+
+      // Define the decades
+      const decades = {
+        1860: decade1860,
+        1870: decade1870,
+        1880: decade1880,
+        1890: decade1890,
+        1900: decade1900,
+        1910: decade1910,
+        1920: decade1920,
+        1930: decade1930,
+        1940: decade1940,
+        1950: decade1950,
+        1960: decade1960,
+        1970: decade1970,
+        1980: decade1980,
+        1990: decade1990,
+        2000: decade2000,
+        2010: decade2010,
+        2020: decade2020
+      };
+
+      const currentYear = $('.slider').val();
+
+      // call functions defined below
+      sequenceUI(decades, rivers, railroads, sundownTowns); // calls the time slider and sends the layer to it
+      createTemporalLegend(currentYear, decades, rivers, railroads, sundownTowns); // calls the createTemporalLegend function      
+    });
+
+    // call the UI slider with a function called "sequenceUI"
+    function sequenceUI(decades, rivers, railroads, sundownTowns) { // feed it the data
+
+      // use the jQuery ajax method to get the slider element
+      $('.slider')
+          .on('input change', function() { // when the input changes...
+              let currentYear = $(this).val(); // identify the year selected with "currentYear"
+              createTemporalLegend(currentYear, decades, rivers, railroads, sundownTowns); // change grade value to that currently selected by UI slider
+          });
+
+    }; // End sequenceUI function    
+
+    // Add a temporal legend in sync with the UI slider
+    function createTemporalLegend(currentYear, decades, rivers, railroads, sundownTowns) {
+
+      // Feed the selected year to the temporal legend span
+      $('#temporal span').html("Year: " + currentYear);
+
+      // Iterate through the decades and layers
+      for (const decade in decades) {
+        if (decade == currentYear) {
+          demoGroup.addLayer(decades[decade]);
+        } else {
+          demoGroup.removeLayer(decades[decade]);
+        }
+      };
+
+      // Set the style of the railroads layer based on the current year
+      railroads.eachLayer(function (layer) {
+        if (layer.feature.properties.InOpBy <= currentYear) {
+          layer.setStyle({
+            color: "#5C4033",
+            weight: 1
+          });
+        } else {
+          layer.setStyle({
+            color: "#5C4033",
+            weight: 0
+          });
+        }
+      });
+
+      rivers.bringToFront();
+      railroads.bringToFront();
+      sundownTowns.bringToFront();      
+
+    }; // End createTemporalLegend function    
+
+    // define a function to return the layer style
+    function getLayerStyle(feature) {
+        return {
+            color: 'grey',      // Outline color
+            weight: 1,          // Outline weight
+            opacity: 1,       // Outline opacity
+            fillColor: getColor(feature.properties.Perc_POC), // Fill color
+            fillOpacity: 0.65    // Fill opacity
+        };
+    }; // end getLayerStyle
+
+    // define a function to apply color based on conditions
+    function getColor(d) {
+        return d > 75 ? '#c83454':
+               d > 50 ? '#de8c52':
+               d > 25 ? '#e8b34c':
+               d > 5 ? '#b6995a': 
+               d >= 0 ? '#60645c':
+               '#e8d4bc'; 
+    }; // end getColor
+
+    // define a function to return hover effects 
+    function onHover(feature, layer) {
+        // define a variable to hold the percentage of people of color
+        let pocPerc;
+        if (layer.feature.properties.Perc_POC == -1) {
+          pocPerc = "No data";
+        } else {
+          pocPerc = layer.feature.properties.Perc_POC + "%";
+        }
+        // define the tooltip info
+        let tooltip = '<b>' + layer.feature.properties.Geo_QName + '</b><br>% People of Color: ' + pocPerc;
+        // bind the tooltip to the layer and add the content defined as "cityTooltip" above
+        layer.bindTooltip(tooltip, {
+          pane: 'custom-tooltip-pane',
+          sticky: true,
+          className: "tooltip"
+        });
+        layer.on("mouseover", function(e) {
+            layer.setStyle({
+                fillOpacity: 0.95
+            });
+        });
+        layer.on("mouseout", function(e) {
+            layer.setStyle({
+                fillOpacity: 0.65
+            });
+        });
+    }; // end onHover
+
+    // define a function to color sundown towns by confirmation status 
+    function sundownStatus(d) {
+      return d == 9 ? '#000000':
+             d == 4 ? '#8B0000':
+             d == 3 ? '#FF0000':
+             d == 2 ? '#FA8072':
+             d == 1 ? '#A9A9A9':
+             'grey';
+    }; // end sundownStatus
+
+    // Define a function to create L.geoJson layers with shared properties
+    function createDecadeLayer(data) {
+      return L.geoJson(data, {
+        style: getLayerStyle,
+        onEachFeature: onHover,
+      });
+    }; // end createDecadeLayer    
+    
+  </script>
+</body>
+
+</html>
